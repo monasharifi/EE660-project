@@ -1,6 +1,2 @@
 # EE660-project
-TestGithub
-
-add some lines 
-************88
-**************
+TestGithub add some lines ************88 **************
