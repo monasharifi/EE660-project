@@ -1,0 +1,18 @@
+clear all
+dataset=load('Autim_nonAutism.csv');
+target = dataset(:,end);
+% Xtrain = dataset(:,1:end-1);
+% % ---preprocessing train data
+% % ===standardization with mean 0 and unit variance
+% X=Xtrain-repmat(mean(Xtrain),size(Xtrain,1),1);
+% Xtrain_std=X./repmat(std(X),size(Xtrain,1),1);
+% csvwrite('Xtrain.csv',Xtrain_std)
+
+% extract the baseline and concentration matrices and calculate the
+% differencce 
+Baseline = dataset(:,1:128);
+Concentration = dataset(:,129:256);
+Activation = dataset(: , 257:end-1);
+Base_concen = Baseline-Concentration;
+
+csvwrite('Base_concen.csv',Base_concen)

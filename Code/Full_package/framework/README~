@@ -1,0 +1,21 @@
+README (Ana 10/19/2015)
+For runMethods.py, split_and_classify.py, classification_methods_function.py
+
+
+Steps for running classification methods iteratively.
+1) runMethods.py loads a csv file and preprocess the data. Calls split_and_classify() from split_and_classify.py
+2) split_and_classify.py main function, split_and_classify() splits the data intro training and testing for all features,
+   and for top mRMR features. Calls classification_methods() from classification_methods_function.py
+3) classification_methods_function.py runs the 9 classifiers and saves the output in an array.
+
+To run runMethods.py:
+-Modify line 12 with csv file name 
+-mRMR features are in line 10. Modify if needed. 
+
+Note: 
+printed names of columns at the end are for mRMR. 
+This function was tested with a csv file with the format [GROUP_ID, features, labels].
+If mRMR did NOT accout for the first column, add 1 to the indices. (default)
+If mRMR did account for the first column, do not add 1. (change this in runMethods.py, line 166).
+
+

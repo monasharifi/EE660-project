@@ -1,0 +1,182 @@
+from numpy import genfromtxt
+from sklearn import preprocessing
+import numpy as np 
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score
+import matplotlib.pyplot as plt
+from sklearn import metrics
+from sklearn import grid_search
+from sklearn import datasets, linear_model, cross_validation, grid_search
+import numpy as np
+from numpy import genfromtxt
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score
+import matplotlib.pyplot as plt
+from sklearn import metrics
+from sklearn import grid_search
+from sklearn.preprocessing import Imputer
+from sklearn.cross_validation import train_test_split
+from preprocessing_data import preprocess
+import csv
+import  scipy.stats as stats
+from sklearn.cross_validation import cross_val_score
+
+from split_and_classify import split_and_classify
+
+np.set_printoptions(precision=4)
+cm_list=[] 
+classifier_list=[]
+plt.close('all')
+
+# http://stackoverflow.com/questions/5957470/matlab-style-find-function-in-python
+def indices(a, func):# ~ Find in matlab  
+    return [i for (i, val) in enumerate(a) if func(val)]
+
+def unique(a):# removing duplicate rows
+    order = np.lexsort(a.T)
+    a = a[order]
+    diff = np.diff(a, axis=0)
+    ui = np.ones(len(a), 'bool')
+    ui[1:] = (diff != 0).any(axis=1) 
+    return a[ui]
+
+def _balance_weights(y):
+
+    """Compute sample weights such that the class distribution of y becomes
+       balanced.
+    Parameters
+    ----------
+    y : array-like
+        Labels for the samples.
+    Returns
+    -------
+    weights : array-like
+        The sample weights.
+    """
+
+    y = np.asarray(y)
+    y = np.searchsorted(np.unique(y), y)
+    bins = np.bincount(y)
+
+    weights = 1. / bins.take(y)
+    weights *= bins.min()
+
+    return weights
+
+
+def printAverage(class_index):
+    print "\nAverage for all ROI"
+    print 'Accuracy on train data:%f'% train_arr[class_index]
+    print 'Accuracy on test data:%f'% test_arr[class_index]
+    print "\nAverage for mRMR ROI"
+    print 'Accuracy on train data:%f'% train_arr_sub[class_index]
+    print 'Accuracy on test data:%f'% test_arr_sub[class_index]
+
+############### Reading the Data ###############
+#--------------Importing the files
+train = genfromtxt('Autism group1to5 _Autuism_Healthy_roi.csv', delimiter=',') # no activation
+#train = genfromtxt('Autism_T_10ROI_Autism_vs_Healthy.csv', delimiter=',') # no activation
+train = train[1: , :]
+print train.shape
+train= unique(train)
+print train.shape
+## removing NAN from dataset 
+#train=train[~np.isnan(train).any(axis=1)] 
+#print train.shape
+# saving the file without any missing values 
+#np.savetxt("train_healthy_autism_roi_10.csv", train, delimiter=",") 
+
+np.random.shuffle(train)
+
+print train.shape
+# getting equal number of samples from each label 
+inds_1 = indices(train [:,train.shape[1]-1], lambda x: x == 1)
+inds_0 = indices(train [:,train.shape[1]-1], lambda x: x == 0)
+#print len(inds_1)
+#print len(inds_0)
+D=np.minimum(len(inds_1),len(inds_0))
+
+indx=np.concatenate((inds_1[0:D],inds_0[0:D]),axis=0)
+train= train[indx,:] # extracting a subset with equal number of samples in each class 
+np.random.shuffle(train)
+#np.savetxt("train_healthy_autism_subsample.csv", train, delimiter=",") 
+
+y_train = train[:,train.shape[1]-1]
+x_train = train[:,:train.shape[1]-1]
+#Weights = _balance_weights(y_train)
+
+#print x_train.shape , y_train.shape
+
+# imputing the missing values with feature mean 
+import  scipy.stats as stats
+col_mean = stats.nanmean(x_train,axis=0)
+inds = np.where(np.isnan(x_train))
+x_train[inds]=np.take(col_mean,inds[1])
+
+preprocessed_data= np.column_stack((x_train,y_train))
+#np.savetxt("preprocessed_data_aut_healthy.csv", preprocessed_data, delimiter=",")
+
+############## Standarize the features
+scaler=preprocessing.StandardScaler().fit(x_train)
+x_train= scaler.transform (x_train)
+
+m=10;
+
+train_sum= 0
+test_sum = 0
+train_sum_sub= 0
+test_sum_sub = 0
+
+for i in range(m):
+    train_arr, test_arr, train_arr_sub, test_arr_sub= split_and_classify(x_train,y_train)
+    train_sum= train_sum+ train_arr
+    test_sum = test_sum +test_arr
+    train_sum_sub= train_sum_sub + train_arr_sub
+    test_sum_sub = test_sum_sub + test_arr_sub
+
+train_arr= train_sum/m
+test_arr= test_sum/m
+train_arr_sub= train_sum_sub/m
+test_arr_sub= test_sum_sub/m
+
+
+print "\n\n============== SVM ==================="
+class_index= 0
+printAverage(class_index)
+
+print "\n\n============== Random Forest ==============="
+class_index+=1
+printAverage(class_index)
+
+print "\n\n============== kNN ==================="
+class_index+=1
+printAverage(class_index)
+
+print "\n\n============== Logistic Regression ==================="
+class_index+=1
+printAverage(class_index)
+
+print "\n\n============== Naive Bayes ==================="
+class_index+=1
+printAverage(class_index)
+
+print "\n\n========== Gradient Boosting Classifier ============"
+class_index+=1
+printAverage(class_index)
+
+print "\n\n========== Ada Boost Classifier ============"
+class_index+=1
+printAverage(class_index)
+
+print "\n\n========== Extra Trees Classifier ============"
+class_index+=1
+printAverage(class_index)
+
+
+print "\n\n========== Decision Tree Classifier  ============"
+class_index+=1
+printAverage(class_index)
+
+
+
+

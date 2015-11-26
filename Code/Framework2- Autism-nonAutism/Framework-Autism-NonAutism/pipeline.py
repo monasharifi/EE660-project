@@ -1,0 +1,333 @@
+from numpy import genfromtxt
+from sklearn import preprocessing
+import numpy as np 
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score
+import matplotlib.pyplot as plt
+from sklearn import metrics
+from sklearn import grid_search
+from sklearn import datasets, linear_model, cross_validation, grid_search
+import numpy as np
+from numpy import genfromtxt
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score
+import matplotlib.pyplot as plt
+from sklearn import metrics
+from sklearn import grid_search
+from sklearn.preprocessing import Imputer
+from sklearn.cross_validation import train_test_split
+#from preprocessing_data import preprocess
+import csv
+import  scipy.stats as stats
+from sklearn.cross_validation import cross_val_score
+np.set_printoptions(precision=4)
+cm_list=[] 
+classifier_list=[]
+plt.close('all')
+
+# http://stackoverflow.com/questions/5957470/matlab-style-find-function-in-python
+def indices(a, func):# ~ Find in matlab  
+    return [i for (i, val) in enumerate(a) if func(val)]
+
+def unique(a):# removing duplicate rows
+    order = np.lexsort(a.T)
+    a = a[order]
+    diff = np.diff(a, axis=0)
+    ui = np.ones(len(a), 'bool')
+    ui[1:] = (diff != 0).any(axis=1) 
+    return a[ui]
+def cross_val_eval(predicted , ytrain):
+        Error_rate = np.absolute(np.subtract(ytrain, predicted))
+        result= np.column_stack ((ytrain,predicted))
+        Acu_rate=np.column_stack ((result,Error_rate))
+        temp_indx=indices(Acu_rate [:,Acu_rate.shape[1]-1], lambda x: x == 2)
+        Acu_rate[temp_indx] = 0 
+        #np.savetxt("yetest_ypred_multiclass.csv", Acu_rate, delimiter=",") 
+        Accu =1-( np.sum(Acu_rate[:,Acu_rate.shape[1]-1])/Acu_rate.shape[0])
+        return Accu 
+
+def evaluate(clf, xtrain, xtest, ytrain, ytest, classifier_name):
+        ypredtrain = clf.predict(xtrain)
+        ypred = clf.predict(xtest)
+        ypredSoft= clf.predict_proba(xtest)   
+        ypredSoft = ypredSoft[:, 1];         
+        print 'Confusion Matrix:' 
+        cm = confusion_matrix(ytest, ypred)
+        #print cm
+        Error_rate = np.absolute(np.subtract(ytest, ypred))
+        result= np.column_stack ((ytest,ypred))
+        Acu_rate=np.column_stack ((result,Error_rate))
+        temp_indx=indices(Acu_rate [:,Acu_rate.shape[1]-1], lambda x: x == 2)
+        Acu_rate[temp_indx] = 0 
+        #np.savetxt("yetest_ypred_multiclass.csv", Acu_rate, delimiter=",") 
+        Accu =1-( np.sum(Acu_rate[:,Acu_rate.shape[1]-1])/Acu_rate.shape[0])
+        
+        TN = cm[0][0]
+        FP = cm[0][1]
+        FN = cm[1][0]
+        TP = cm[1][1]
+        #print 'Precision = ', metrics.precision_score(ytest, ypred)
+        SPC= 1.0*TN/(TN+FP) 
+        print 'Specificity = ' ,np.around(SPC ,decimals=3)
+        print 'Sensitivity = ', np.around(metrics.recall_score(ytest, ypred),decimals=3) # Same as Recall 
+        #print 'F1 Score = ', f1_score(ytest, ypred)
+        fpr, tpr, thresholds = metrics.roc_curve(ytest, ypredSoft)
+        roc_auc = metrics.auc(fpr, tpr)
+        print 'AUC = ', np.around(metrics.auc(fpr, tpr),decimals=3)
+        print 'Accuracy on train data:%f'% np.around(metrics.accuracy_score(ytrain,ypredtrain),decimals=3)
+        print 'Accuracy on test data:%f'% np.around(metrics.accuracy_score(ytest,ypred),decimals=3)
+        
+        #-----------Plotting the ROC Curve
+        plt.plot(fpr, tpr, label=classifier_name + '(area = %0.2f)' % roc_auc)
+        plt.plot([0, 1], [0, 1], 'k--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('Receiver operating characteristic example')
+        plt.legend(loc="lower right")
+        #plot_cm(cm,classifier_name)
+        cm_list.append(cm)
+        classifier_list.append(classifier_name)
+        return Accu
+
+def train_test_split(x_train, y_train,split_ratio):
+# Splitting data to train and test #########
+# "give Xtrain and y_train and test split size as input 
+# return seperate train and test splits for both X and Y "
+    label_1 = indices(y_train , lambda x: x == 1)
+    label_0 = indices(y_train , lambda x: x == 0)
+    #print len(label_1)
+    #print len(label_0)
+    # ------ extrating test data split 
+    test_split_ratio= split_ratio#0.2 # in put of the function 
+    test_range=int(len(label_1)*test_split_ratio)
+    #print test_range  
+    test_range = int(test_range)
+    #print np.round(len(label_1)*test_split_ratio)
+    #print test_range
+    test_indx_1=label_1[0:test_range]
+    test_indx_0=label_0[0:test_range]
+    test_split_x=np.concatenate((x_train[test_indx_1,:],x_train[test_indx_0,:]),axis=0)
+    test_split_y=np.concatenate((y_train[test_indx_1],y_train[test_indx_0]),axis=0)
+    # ------ extrating train data split 
+    train_indx_1=label_1[test_range:]
+    train_indx_0=label_0[test_range:]
+    train_split_x=np.concatenate((x_train[train_indx_1,:],x_train[train_indx_0,:]),axis=0)
+    train_split_y=np.concatenate((y_train[train_indx_1],y_train[train_indx_0]),axis=0)
+    
+    #print ('Inside Function')
+    test = np.column_stack((test_split_x,test_split_y))
+    train=np.column_stack((train_split_x, train_split_y))
+    np.random.shuffle(train)
+    np.random.shuffle(test)
+    train_split_y = train[:,train.shape[1]-1]
+    train_split_x = train[:,:train.shape[1]-1]
+    #print train_split_x.shape
+    test_split_y = test[:,test.shape[1]-1]
+    test_split_x = test[:,:test.shape[1]-1]
+#    print test_split_x.shape
+    return test_split_x, test_split_y , train_split_x , train_split_y
+
+
+############### Reading the Data ###############
+#--------------Importing the files
+#Autism _T_group1to5_ROI_ver2
+train = genfromtxt('Autism_T_Autism_vs_nonAutism.csv', delimiter=',') # no activation 
+train = train[1:,:]
+#print train.shape
+train= unique(train)
+#print train.shape
+np.random.shuffle(train)
+#print train.shape
+
+y_train = train[:,train.shape[1]-1]
+x_train = train[:,:train.shape[1]-1]
+
+# imputing the missing values with feature mean 
+import  scipy.stats as stats
+col_mean = stats.nanmean(x_train,axis=0)
+inds = np.where(np.isnan(x_train))
+#print inds
+x_train[inds]=np.take(col_mean,inds[1])
+#x_train = genfromtxt('Xtrain_2more.csv', delimiter=',')
+#np.savetxt("Autim_non_Autism_2more.csv", Acu_rate, delimiter=",") 
+'''
+# ======= L1 SVM Selected features========
+from sklearn.svm import LinearSVC
+print x_train.shape
+X_new = LinearSVC(C=0.01, penalty="l2", dual=False).fit_transform(x_train, y_train)
+x_train= X_new
+print ('L1 Selected features')
+print X_new.shape
+'''
+#=========*********************===========
+from sklearn.linear_model import SGDClassifier
+X_new= SGDClassifier(loss="hinge", penalty="l1" , alpha =0.0001).fit_transform(x_train, y_train)
+x_train= X_new
+print ('L1 Selected features')
+print X_new.shape
+
+#=========*********************===========
+
+test_split_x, test_split_y , train_split_x , train_split_y = train_test_split(x_train, y_train,0.2)
+x_train = train_split_x
+y_train = train_split_y
+x_test = test_split_x
+y_test = test_split_y
+
+#============== SVM ==============
+from sklearn.svm import SVC
+from sklearn import metrics
+print "\n\n============== SVM ==================="
+clf = SVC(C=10.0, cache_size=200, class_weight=None, coef0=0.0, degree=3, gamma=0.001, kernel='rbf', max_iter=-1, probability=True,
+  random_state=None, shrinking=True, tol=0.001, verbose=False) 
+clf.fit(x_train, y_train)
+print "RF evaluation on seperate Train and Test dataset:"
+Acuuracy1 = evaluate(clf, x_train, x_test, y_train,y_test,'SVM')
+
+#============== Random Forest ===================
+from sklearn.ensemble import  RandomForestClassifier
+print "\n\n============== Random Forest ==============="
+clf = RandomForestClassifier(n_estimators=10, max_depth=None,min_samples_split=1, random_state=0)
+clf.fit(x_train, y_train)
+print "RF evaluation on seperate Train and Test dataset:"
+ypred = clf.predict(x_test)
+Acuuracy =evaluate(clf, x_train, x_test, y_train, y_test, 'RF')
+Acuuracy=0
+#=============== Gradient Boosting Classifier ====================
+from sklearn.ensemble import GradientBoostingClassifier
+print "\n\n============== Gradient Boosting ==============="
+clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.1, n_estimators=300, subsample=1.0, min_samples_split=2, min_samples_leaf=1,max_depth=3, init=None, random_state=None, max_features=None, verbose=0, max_leaf_nodes=None, warm_start=False) 
+clf.fit(x_train, y_train)
+print "GB evaluation on seperate Test dataset:"
+Acuuracy =evaluate(clf, x_train, x_test, y_train, y_test, 'GB')
+Accuracy=0
+#============== Logistic ===================
+print "\n\n============== Logistic Regression ==================="
+from sklearn.linear_model import LogisticRegression
+clf = LogisticRegression(class_weight='auto')
+clf.fit(x_train, y_train)
+print "LR evaluation on Test dataset:"
+ypred = clf.predict(x_test)
+Accuracy= evaluate(clf, x_train, x_test, y_train, y_test, 'LR') 
+Accuracy=0
+'''
+#*********************************************
+#http://scikit-learn.org/stable/modules/sgd.html
+#http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html
+
+#loss="hinge": (soft-margin) linear Support Vector Machine
+from sklearn.linear_model import SGDClassifier
+clf = SGDClassifier(loss="hinge", penalty="l2")
+clf.fit(X, y)
+
+
+#*******************************************************************
+#http://scikit-learn.org/stable/modules/feature_selection.html
+from sklearn.pipeline import Pipeline
+
+clf = Pipeline([
+  ('feature_selection', LinearSVC(C=0.01, penalty="l2", dual=False)),
+  ('classification', RandomForestClassifier(n_estimators=10, max_depth=None,min_samples_split=1, random_state=0))
+])
+clf.fit(x_train, y_train)
+print "RF evaluation on seperate Train and Test dataset:"
+ypred = clf.predict(x_test)
+Acuuracy =evaluate(clf, x_train, x_test, y_train, y_test, 'RF')
+
+Acuuracy=0
+'''
+# SECOND PART OF THE CODE
+
+'''
+#http://scikit-learn.org/stable/auto_examples/linear_model/plot_logistic_l1_l2_sparsity.html
+from sklearn.linear_model import LogisticRegression
+for i, C in enumerate((100, 1, 0.01)):
+   
+    # LR L1 &L2 regularization
+    clf_l1_LR = LogisticRegression(C=C, penalty='l1', tol=0.01)
+    clf_l2_LR = LogisticRegression(C=C, penalty='l2', tol=0.01)
+    Xnew_l1 = clf_l1_LR.fit_transform(x_train, y_train)
+    Xnew_l2 = clf_l2_LR.fit_transform(x_train, y_train)
+    
+    # SVM L1 &L2 regularization
+    from sklearn.svm import LinearSVC
+    clf_l1_SVM = LinearSVC(C=C, penalty='l1', tol=0.01,dual=False)
+    clf_l2_SVM = LinearSVC(C=C, penalty='l2', tol=0.01,dual=False)
+    Xnew_l1 = clf_l1_SVM.fit_transform(x_train, y_train)
+    Xnew_l2 = clf_l2_SVM.fit_transform(x_train, y_train)
+   
+    
+    from sklearn.linear_model import SGDClassifier
+    clf_l1_SGD = SGDClassifier(loss="hinge", penalty='l1',alpha=C)
+    clf_l2_SGD = SGDClassifier(loss="hinge", penalty='l2',alpha=C)
+    Xnew_l1 = clf_l1_SGD.fit_transform(x_train, y_train)
+    Xnew_l2 = clf_l2_SGD.fit_transform(x_train, y_train)
+   
+    print Xnew_l1.shape
+    print Xnew_l2.shape
+    # coef_l1_LR contains zeros due to the
+   
+    print("C=%.2f" % C)
+    print("score with L1 penalty: %.4f" % clf_l1_SGD.score(x_train, y_train))
+    print("score with L2 penalty: %.4f" % clf_l1_SGD.score(x_train, y_train))
+    x_train1= Xnew_l1
+    test_split_x, test_split_y , train_split_x , train_split_y = train_test_split(x_train1, y_train,0.2)
+    x_train1 = train_split_x
+    y_train1 = train_split_y
+    x_test1 = test_split_x
+    y_test1 = test_split_y
+    x_train2= Xnew_l2
+    test_split_x, test_split_y , train_split_x , train_split_y = train_test_split(x_train2, y_train,0.2)
+    x_train2 = train_split_x
+    y_train2 = train_split_y
+    x_test2 = test_split_x
+    y_test2 = test_split_y
+
+    #============== SVM ==============
+    from sklearn.svm import SVC
+    from sklearn import metrics
+    print "\n\n============== SVM-L1_LR ==================="
+    clf = SVC(C=10.0, cache_size=200, class_weight=None, coef0=0.0, degree=3, gamma=0.001, kernel='rbf', max_iter=-1,   probability=True,
+  random_state=None, shrinking=True, tol=0.001, verbose=False) 
+    clf.fit(x_train1, y_train1)
+    print "SVM evaluation on seperate Train and Test dataset:"
+    Acuuracy1 = evaluate(clf, x_train1, x_test1, y_train1,y_test1,'SVM')
+    print "\n\n============== SVM-L2_LR ==================="
+    clf.fit(x_train2, y_train2)
+    Acuuracy1 = evaluate(clf, x_train2, x_test2, y_train2,y_test2,'SVM')
+
+    #============== Random Forest ===================
+    from sklearn.ensemble import  RandomForestClassifier
+    print "\n\n============== Random Forest ==============="
+    clf.fit(x_train1, y_train1)
+    print "\n\n============== RF-L1_LR ==================="
+    Acuuracy1 = evaluate(clf, x_train1, x_test1, y_train1,y_test1,'RF')
+    print "\n\n============== RF-L2_LR ==================="
+    clf.fit(x_train2, y_train2)
+    Acuuracy1 = evaluate(clf, x_train2, x_test2, y_train2,y_test2,'RF')
+
+    Acuuracy=0
+    #=============== Gradient Boosting Classifier ====================
+    from sklearn.ensemble import GradientBoostingClassifier
+    print "\n\n============== Gradient Boosting ==============="
+    clf = GradientBoostingClassifier(loss='deviance', learning_rate=0.1, n_estimators=300, subsample=1.0, min_samples_split=2,      min_samples_leaf=1,max_depth=3, init=None, random_state=None, max_features=None, verbose=0, max_leaf_nodes=None, warm_start=False) 
+    clf.fit(x_train1, y_train1)
+    print "\n\n============== GB-L1_LR ==================="
+    Acuuracy1 = evaluate(clf, x_train1, x_test1, y_train1,y_test1,'GB')
+    print "\n\n============== GB-L2_LR ==================="
+    clf.fit(x_train2, y_train2)
+    Acuuracy1 = evaluate(clf, x_train2, x_test2, y_train2,y_test2,'GB')
+    Accuracy=0
+    #============== Logistic ===================
+    print "\n\n============== Logistic Regression ==================="
+    from sklearn.linear_model import LogisticRegression
+    clf = LogisticRegression(class_weight='auto')
+    clf.fit(x_train1, y_train1)
+    print "\n\n============== LR-L1_LR ==================="
+    Acuuracy1 = evaluate(clf, x_train1, x_test1, y_train1,y_test1,'LR')
+    print "\n\n============== LR-L2_LR ==================="
+    clf.fit(x_train2, y_train2)
+    Acuuracy1 = evaluate(clf, x_train2, x_test2, y_train2,y_test2,'LR')
+ '''
